@@ -4,10 +4,10 @@ from setuptools import setup
 
 PROJECT_ROOT, _ = os.path.split(__file__)
 
-NAME = 'python-kafka-logger'
+NAME = 'kafka-logging-handler'
 EMAILS = 'mbirger@redhat.com, mjahudko@readhat.com, rmonegro@redhat.com'
 AUTHORS = 'Mark Birger, Michaela Jahudkova, Robert Monegro'
-VERSION = '0.1.1'
+VERSION = '0.1.2'
 
 URL = 'https://github.com/redhat-aqe/python-kafka-logger'
 LICENSE = 'GPLv3'
