@@ -7,9 +7,9 @@ PROJECT_ROOT, _ = os.path.split(__file__)
 NAME = 'python-kafka-logger'
 EMAILS = 'mbirger@redhat.com, mjahudko@readhat.com, rmonegro@redhat.com'
 AUTHORS = 'Mark Birger, Michaela Jahudkova, Robert Monegro'
-VERSION = '0.0.1'
+VERSION = '0.1.1'
 
-URL = '<need repo url>'
+URL = 'https://github.com/redhat-aqe/python-kafka-logger'
 LICENSE = 'GPLv3'
 
 
