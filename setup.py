@@ -35,6 +35,7 @@ setup(
         ],
     install_requires=INSTALL_REQUIRES,
     url=URL,
+    download_url='https://github.com/redhat-aqe/python-kafka-logger/archive/{0}.tar.gz'.format(VERSION),
     description=SHORT_DESCRIPTION,
     long_description=DESCRIPTION,
     license=LICENSE,
