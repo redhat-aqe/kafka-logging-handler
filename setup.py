@@ -9,7 +9,7 @@ EMAILS = 'mbirger@redhat.com, mjahudko@readhat.com, rmonegro@redhat.com'
 AUTHORS = 'Mark Birger, Michaela Jahudkova, Robert Monegro'
 VERSION = '0.1.2'
 
-URL = 'https://github.com/redhat-aqe/python-kafka-logger'
+URL = 'https://github.com/redhat-aqe/kafka-logging-handler'
 LICENSE = 'GPLv3'
 
 
@@ -35,7 +35,7 @@ setup(
         ],
     install_requires=INSTALL_REQUIRES,
     url=URL,
-    download_url='https://github.com/redhat-aqe/python-kafka-logger/archive/{0}.tar.gz'.format(VERSION),
+    download_url='https://github.com/redhat-aqe/kafka-logging-handler/archive/{0}.tar.gz'.format(VERSION),
     description=SHORT_DESCRIPTION,
     long_description=DESCRIPTION,
     license=LICENSE,
