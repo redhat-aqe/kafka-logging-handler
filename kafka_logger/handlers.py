@@ -3,6 +3,7 @@
 import atexit
 import json
 import logging
+import socket
 import sys
 from threading import Lock, Timer
 
@@ -31,6 +32,10 @@ class KafkaLoggingHandler(logging.Handler):
             logger that will be used to log uhandled top-level exception
 
     """
+    __LOGGING_FILTER_FIELDS = ['msecs',
+                               'relativeCreated',
+                               'levelno',
+                               'created']
 
     def __init__(self,
                  hosts_list,
@@ -38,6 +43,7 @@ class KafkaLoggingHandler(logging.Handler):
                  security_protocol='SSL',
                  ssl_cafile=None,
                  kafka_producer_args=None,
+                 additional_fields={},
                  flush_buffer_size=None,
                  flush_interval=5.0,
                  unhandled_exception_logger=None):
@@ -51,6 +57,9 @@ class KafkaLoggingHandler(logging.Handler):
             ssl_cafile (None, optional): path to CA file
             kafka_producer_args (None, optional):
                 extra arguments to pass to KafkaProducer
+            additional_fields (None, optional):
+                A dictionary with all the additional fields that you would like
+                to add to the logs, such the application, environment, etc.
             flush_buffer_size (None/int, optional):
                 flush if buffer > max size, None means there is no restriction
             flush_interval (int, optional): scheduled flush interval in seconds
@@ -75,9 +84,13 @@ class KafkaLoggingHandler(logging.Handler):
             if flush_buffer_size is not None else float("inf")
         self.flush_interval = flush_interval
         self.timer = None
+        self.additional_fields = additional_fields.copy()
+        self.additional_fields.update({'host': socket.gethostname(),
+                                       'host_ip': socket.gethostbyname(socket.gethostname())})
 
         if kafka_producer_args is None:
             kafka_producer_args = {}
+
         self.producer = KafkaProducer(
             bootstrap_servers=hosts_list,
             security_protocol=security_protocol,
@@ -109,8 +122,14 @@ class KafkaLoggingHandler(logging.Handler):
             record.msg = repr(record.msg)
             record.exc_info = repr(record.exc_info)
 
+        # Append additional fields
+        rec = self.additional_fields.copy()
+        for key, value in record.__dict__.items():
+            if key not in KafkaLoggingHandler.__LOGGING_FILTER_FIELDS:
+                rec[key] = "" if value is None else value
+
         with self.buffer_lock:
-            self.buffer.append(record.__dict__)
+            self.buffer.append(rec)
 
         # schedule a flush
         if len(self.buffer) >= self.max_buffer_size:
