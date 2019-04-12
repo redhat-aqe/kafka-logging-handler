@@ -181,20 +181,19 @@ class KafkaLoggingHandler(logging.Handler):
             self.flush()
         self.producer.close()
 
-    def unhandled_exception(self, _, exception, __):
+    def unhandled_exception(self, exctype, exception, traceback):
         """
         Log top-level exception to the provided logger.
 
         Args:
+            exctype (type): type of the exception
             exception (Exception): exception object from excepthook
-
+            traceback (traceback): traceback object
         """
         if self.unhandled_exception_logger is not None:
-            try:
-                raise exception
-            except Exception:
-                self.unhandled_exception_logger.exception(
-                    "Unhandled top-level exception")
+            self.unhandled_exception_logger.exception(
+                "Unhandled top-level exception",
+                exc_info=(exctype, exception, traceback, ))
 
     def close(self):
         """Close the handler."""
