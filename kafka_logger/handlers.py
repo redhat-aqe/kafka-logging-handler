@@ -32,6 +32,7 @@ class KafkaLoggingHandler(logging.Handler):
             logger that will be used to log uhandled top-level exception
 
     """
+
     __LOGGING_FILTER_FIELDS = ['msecs',
                                'relativeCreated',
                                'levelno',
@@ -85,8 +86,10 @@ class KafkaLoggingHandler(logging.Handler):
         self.flush_interval = flush_interval
         self.timer = None
         self.additional_fields = additional_fields.copy()
-        self.additional_fields.update({'host': socket.gethostname(),
-                                       'host_ip': socket.gethostbyname(socket.gethostname())})
+        self.additional_fields.update({
+            'host': socket.gethostname(),
+            'host_ip': socket.gethostbyname(socket.gethostname())
+        })
 
         if kafka_producer_args is None:
             kafka_producer_args = {}
