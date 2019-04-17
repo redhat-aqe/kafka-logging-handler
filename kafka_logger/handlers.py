@@ -129,6 +129,12 @@ class KafkaLoggingHandler(logging.Handler):
         rec = self.additional_fields.copy()
         for key, value in record.__dict__.items():
             if key not in KafkaLoggingHandler.__LOGGING_FILTER_FIELDS:
+                if key == "args":
+                    # convert ALL argument to a str representation
+                    # Elasticsearch supports number datatypes
+                    # but it is not 1:1 - logging "inf" float
+                    # causes _jsonparsefailure error in ELK
+                    value = tuple(arg.__repr__() for arg in value)
                 rec[key] = "" if value is None else value
 
         with self.buffer_lock:
