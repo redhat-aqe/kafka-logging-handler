@@ -1,5 +1,6 @@
 Kafka Logging Handler
 =====================
+[![Downloads](https://pepy.tech/badge/kafka-logging-handler)](https://pepy.tech/project/kafka-logging-handler)
 
 The following library simplifies the process of forwarding logs to a Kafka consumer.
 
