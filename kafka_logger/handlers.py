@@ -3,9 +3,12 @@
 import atexit
 import json
 import logging
+from multiprocessing import Queue
+import os
 import socket
 import sys
-from threading import Lock, Timer
+from threading import Lock, Thread, Timer
+import time
 
 from kafka import KafkaProducer  # pylint: disable=import-error
 
@@ -21,11 +24,18 @@ class KafkaLoggingHandler(logging.Handler):
     This handler enables the user to forward logs to Kafka.
 
     Attributes:
+        additional_fields (dict): extra fields attached to logs
         buffer (list): logs (dict) waiting for a flush to Kafka
         buffer_lock (threading.Lock): multithreading lock for a buffer access
         flush_interval (float): scheduled flush interval in seconds
         kafka_topic_name (str): topic name
+        main_process_pid (int): pid of the process which initialized logger
         max_buffer_size (int): flush if buffer > max size
+        mp_log_handler_flush_lock (threading.Lock):
+            locked when mp_log_handler_thread flushes logs
+        mp_log_handler_thread (threading.Thread): thread that flushed mp queue
+        mp_log_queue (multiprocessing.Queue):
+            queue used to redirect logs of child processes
         producer (kafka.KafkaProducer): producer object
         timer (threading.Timer): thread with a scheduled logs flush
         unhandled_exception_logger (logging.Logger):
@@ -37,6 +47,7 @@ class KafkaLoggingHandler(logging.Handler):
                                'relativeCreated',
                                'levelno',
                                'created']
+    __MULTIPROCESSING_QUEUE_FLUSH_DELAY = 0.2
 
     def __init__(self,
                  hosts_list,
@@ -102,20 +113,35 @@ class KafkaLoggingHandler(logging.Handler):
             **kafka_producer_args)
 
         # setup exit hooks
+        # exit hooks work only in main process
+        # termination of child processes uses os.exit() and ignore any hooks
         atexit.register(self.at_exit)
         sys.excepthook = self.unhandled_exception
 
-    def emit(self, record):
+        # multiprocessing support
+        self.main_process_pid = os.getpid()
+        self.mp_log_queue = Queue()
+        # main process thread that will flush mp queue
+        self.mp_log_handler_flush_lock = Lock()
+        self.mp_log_handler_thread = Thread(
+            target=self.mp_log_handler,
+            name="Kafka Logger Multiprocessing Handler")
+        # daemon will terminate with the main process
+        self.mp_log_handler_thread.setDaemon(True)
+        self.mp_log_handler_thread.start()
+
+    def prepare_record_dict(self, record):
         """
-        Add a new log to the buffer.
+        Prepare a dictionary log item.
+
+        Format a log record and extend dictionary with default values.
 
         Args:
-            record: Logging message
-        """
-        # drop Kafka logging to avoid infinite recursion.
-        if record.name == 'kafka.client':
-            return
+            record (logging.LogRecord): log record
 
+        Returns:
+            dict: log item ready for Kafka
+        """
         # use default formatting
         # Update the msg dict to include all of the message attributes
         self.format(record)
@@ -137,8 +163,37 @@ class KafkaLoggingHandler(logging.Handler):
                     value = tuple(arg.__repr__() for arg in value)
                 rec[key] = "" if value is None else value
 
+        return rec
+
+    def emit(self, record):
+        """
+        Add log to the buffer or forward to the main process.
+
+        Args:
+            record: Logging message
+        """
+        # drop Kafka logging to avoid infinite recursion.
+        if record.name == 'kafka.client':
+            return
+
+        record_dict = self.prepare_record_dict(record)
+
+        if os.getpid() == self.main_process_pid:
+            self.append_to_buffer(record_dict)
+        else:  # if forked
+            self.mp_log_queue.put(record_dict)
+
+    def append_to_buffer(self, record_dict):
+        """
+        Place log dictionary to the buffer.
+
+        Triggers/schedules a flush of the buffer.
+
+        Args:
+            record_dict (dict): log item
+        """
         with self.buffer_lock:
-            self.buffer.append(rec)
+            self.buffer.append(record_dict)
 
         # schedule a flush
         if len(self.buffer) >= self.max_buffer_size:
@@ -175,6 +230,16 @@ class KafkaLoggingHandler(logging.Handler):
             self.timer.setDaemon(True)
             self.timer.start()
 
+    def mp_log_handler(self):
+        """Emit logs from multiprocessing queue."""
+        while True:
+            if self.mp_log_handler_flush_lock.locked():
+                # second+ iteration
+                self.mp_log_handler_flush_lock.release()
+            record_dict = self.mp_log_queue.get(block=True)  # wait for logs
+            self.mp_log_handler_flush_lock.acquire()
+            self.append_to_buffer(record_dict)
+
     def at_exit(self):
         """
         Flush logs at exit, close the producer.
@@ -183,6 +248,27 @@ class KafkaLoggingHandler(logging.Handler):
         Kafka raises RecordAccumulator in case of flushing in close method.
         """
         # Kafka's RecordAccumulator is still alive here
+        if self.unhandled_exception_logger is not None:
+            # check if there are running subprocesses and log a warning
+            try:
+                import psutil
+                main_process = psutil.Process(pid=self.main_process_pid)
+            except ImportError:
+                pass
+            except psutil.NoSuchProcess:
+                pass
+            else:
+                children = main_process.children(recursive=True)
+                if children:
+                    self.unhandled_exception_logger.warning(
+                        "There are %d child process(es) at the moment of the "
+                        "main process termination. This may cause logs loss.",
+                        len(children))
+        while self.mp_log_queue.qsize() != 0:
+            time.sleep(KafkaLoggingHandler.__MULTIPROCESSING_QUEUE_FLUSH_DELAY)
+        # wait until everything in multiprocessing queue will be buffered
+        self.mp_log_handler_flush_lock.acquire()
+
         if self.timer is not None:
             self.flush()
         self.producer.close()
