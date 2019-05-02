@@ -40,7 +40,7 @@ setup(
     long_description=DESCRIPTION,
     license=LICENSE,
     classifiers=[
-        'Development Status :: 5 - Production/Stable,
+        'Development Status :: 5 - Production/Stable',
         'Environment :: Console',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
