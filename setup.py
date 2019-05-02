@@ -7,7 +7,7 @@ PROJECT_ROOT, _ = os.path.split(__file__)
 NAME = 'kafka-logging-handler'
 EMAILS = 'mbirger@redhat.com, mjahudko@readhat.com, rmonegro@redhat.com'
 AUTHORS = 'Mark Birger, Michaela Jahudkova, Robert Monegro'
-VERSION = '0.1.4'
+VERSION = '0.2.0'
 
 URL = 'https://github.com/redhat-aqe/kafka-logging-handler'
 LICENSE = 'GPLv3'
@@ -40,7 +40,7 @@ setup(
     long_description=DESCRIPTION,
     license=LICENSE,
     classifiers=[
-        'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable,
         'Environment :: Console',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
