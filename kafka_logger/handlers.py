@@ -160,7 +160,7 @@ class KafkaLoggingHandler(logging.Handler):
                     # Elasticsearch supports number datatypes
                     # but it is not 1:1 - logging "inf" float
                     # causes _jsonparsefailure error in ELK
-                    value = tuple(arg.__repr__() for arg in value)
+                    value = tuple(repr(arg) for arg in value)
                 rec[key] = "" if value is None else value
 
         return rec
