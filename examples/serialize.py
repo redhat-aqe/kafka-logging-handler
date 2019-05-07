@@ -11,10 +11,18 @@ REQUIRED_ENV_VARS = ['KAFKA_SERVER', 'KAFKA_CERT', 'KAFKA_TOPIC']
 
 
 class CustomClass:
-    """Dummy class to demo logging."""
+    """Dummy class without __str__ method to demo logging."""
 
     def __init__(self, value):
         """Initialize CustomClass object."""
+        self._value = value
+
+
+class CustomClassConvertable():
+    """Dummy class with __str__ method to demo logging."""
+
+    def __init__(self, value):
+        """Initialize CustomClassConvertable object."""
         self._value = value
 
     def __str__(self):
@@ -61,7 +69,8 @@ def main():
     logger.info("Test log with multiple str parameters: %s %s",
                 "test1", "test2")
 
-    custom_object = CustomClass('test')
+    custom_object = CustomClassConvertable('test')
+    # formatting uses __repr__ if __str__ method isn't available
     logger.info("Test logging of custom obj: %s", custom_object)
     # log record will contain the following values:
     # args: <__main__.CustomClass object at 0x7f3147041c88>
@@ -78,6 +87,12 @@ def main():
         "custom_field_number": 42,
         "custom_field_json": {"a": "test", "b": "test"}
     })
+
+    # logging single object without formatting
+    custom_object_with_str = CustomClassConvertable('test w/ str method')
+    logger.info(custom_object_with_str)  # object has __str__ method
+    custom_object_wo_str = CustomClass('test w/o str method')
+    logger.info(custom_object_wo_str)  # str() will use repr()
 
 
 if __name__ == '__main__':
