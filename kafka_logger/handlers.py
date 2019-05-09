@@ -161,7 +161,7 @@ class KafkaLoggingHandler(logging.Handler):
                     # but it is not 1:1 - logging "inf" float
                     # causes _jsonparsefailure error in ELK
                     value = tuple(repr(arg) for arg in value)
-                if key == "msg" and not isinstance(value, basestring):
+                if key == "msg" and not isinstance(value, str):
                     # msg contains custom class object
                     # if there is no formatting in the logging call
                     value = str(value)
