@@ -9,6 +9,7 @@ import socket
 import sys
 from threading import Lock, Thread, Timer
 import time
+import datetime
 
 from kafka import KafkaProducer  # pylint: disable=import-error
 
@@ -172,7 +173,14 @@ class KafkaLoggingHandler(logging.Handler):
                     # if there is no formatting in the logging call
                     value = str(value)
                 rec[key] = "" if value is None else value
-
+            if key == 'created':
+                # inspired by: cmanaha/python-elasticsearch-logger
+                created_date = \
+                    datetime.datetime.utcfromtimestamp(record.created)
+                rec['timestamp'] = \
+                    "{0!s}.{1:03d}Z".format(
+                        created_date.strftime('%Y-%m-%dT%H:%M:%S'),
+                        int(created_date.microsecond / 1000))
         # apply preprocessor(s)
         for preprocessor in self.log_preprocess:
             rec = preprocessor(rec)
