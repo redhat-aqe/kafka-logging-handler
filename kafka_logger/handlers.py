@@ -58,7 +58,8 @@ class KafkaLoggingHandler(logging.Handler):
                  additional_fields={},
                  flush_buffer_size=None,
                  flush_interval=5.0,
-                 unhandled_exception_logger=None):
+                 unhandled_exception_logger=None,
+                 log_preprocess=None):
         """
         Initialize the handler.
 
@@ -77,6 +78,9 @@ class KafkaLoggingHandler(logging.Handler):
             flush_interval (int, optional): scheduled flush interval in seconds
             unhandled_exception_logger (None/logging.Logger, optional):
                 logger that will be used to log uhandled top-level exception
+            log_preprocess (None/list, optional):
+                list of functions, handler will send the following to Kafka
+                ...preprocess[1](preprocess[0](raw_log))...
 
         Raises:
             KafkaLoggerException: in case of incorrect logger configuration
@@ -101,6 +105,8 @@ class KafkaLoggingHandler(logging.Handler):
             'host': socket.gethostname(),
             'host_ip': socket.gethostbyname(socket.gethostname())
         })
+        self.log_preprocess = \
+            log_preprocess if log_preprocess is not None else []
 
         if kafka_producer_args is None:
             kafka_producer_args = {}
@@ -166,6 +172,10 @@ class KafkaLoggingHandler(logging.Handler):
                     # if there is no formatting in the logging call
                     value = str(value)
                 rec[key] = "" if value is None else value
+
+        # apply preprocessor(s)
+        for preprocessor in self.log_preprocess:
+            rec = preprocessor(rec)
 
         return rec
 
