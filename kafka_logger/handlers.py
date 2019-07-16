@@ -230,6 +230,10 @@ class KafkaLoggingHandler(logging.Handler):
         Skip if the buffer is empty.
         Uses multithreading lock to access buffer.
         """
+        # if flush is triggered in a child process => skip
+        # logging.shutdown() can trigger flush()
+        if os.getpid() != self.main_process_pid:
+            return
         # clean up the timer (reached max buffer size)
         if self.timer is not None and self.timer.is_alive():
             self.timer.cancel()
