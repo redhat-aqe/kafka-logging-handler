@@ -287,9 +287,19 @@ class KafkaLoggingHandler(logging.Handler):
             traceback (traceback): traceback object
         """
         if self.unhandled_exception_logger is not None:
+            if sys.version_info[0] < 3:  # Python 2 only
+                # built-in logging exception() call ignores exc_info
+                # it tries to get sys.exc_info for the second time
+                # sys.exc_info returns (None, None, None) w/o context
+                # this override fixes exception logging in Python 2
+                original_exc_info = sys.exc_info
+                sys.exc_info = lambda: (exctype, exception, traceback, )
             self.unhandled_exception_logger.exception(
                 "Unhandled top-level exception",
                 exc_info=(exctype, exception, traceback, ))
+            if sys.version_info[0] < 3:
+                # remove exc_info override back
+                sys.exc_info = original_exc_info
 
     def close(self):
         """Close the handler."""
