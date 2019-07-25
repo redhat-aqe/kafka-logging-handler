@@ -39,6 +39,10 @@ def main():
         # flush_buffer_size=3,  # uncomment to see that it works slower
         # flush_interval=3.0,  # interval in seconds
         unhandled_exception_logger=logger,
+        kafka_producer_args={
+            'api_version_auto_timeout_ms': 1000000,
+            'request_timeout_ms': 1000000,
+        },
         # you can include arbitrary fields to all produced logs
         additional_fields={
             "service": "test_service"
@@ -51,7 +55,7 @@ def main():
 
     # test logging
     logger.debug("Test debug level logs")
-    for idx in range(6):
+    for idx in range(3):
         logger.info("Test log #%d", idx)
         time.sleep(0.5)
 
