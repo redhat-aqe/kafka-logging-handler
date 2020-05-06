@@ -123,7 +123,8 @@ class KafkaLoggingHandler(logging.Handler):
         # exit hooks work only in main process
         # termination of child processes uses os.exit() and ignore any hooks
         atexit.register(self.at_exit)
-        sys.excepthook = self.unhandled_exception
+        if self.unhandled_exception is not None:
+            sys.excepthook = self.unhandled_exception
 
         # multiprocessing support
         self.main_process_pid = os.getpid()
