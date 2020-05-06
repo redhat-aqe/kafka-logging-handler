@@ -3,7 +3,11 @@
 import atexit
 import json
 import logging
-from multiprocessing import Queue
+import platform
+if platform.system() != 'Darwin':
+    from multiprocessing import Queue
+else:
+    from queue import Queue
 import os
 import socket
 import sys
