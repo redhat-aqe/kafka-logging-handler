@@ -1,15 +1,15 @@
 """This module contains logging handler which forwards logs to Kafka."""
 
 import atexit
+import datetime
 import json
 import logging
-from multiprocessing import Queue
+import multiprocessing
 import os
 import socket
 import sys
 from threading import Lock, Thread, Timer
 import time
-import datetime
 
 from kafka import KafkaProducer  # pylint: disable=import-error
 
@@ -130,7 +130,7 @@ class KafkaLoggingHandler(logging.Handler):
 
         # multiprocessing support
         self.main_process_pid = os.getpid()
-        self.mp_log_queue = Queue()
+        self.mp_log_queue = multiprocessing.Queue()
         # main process thread that will flush mp queue
         self.mp_log_handler_flush_lock = Lock()
         self.mp_log_handler_thread = Thread(

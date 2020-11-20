@@ -1,6 +1,5 @@
 """Usage of kafka-logging-handler with multiprocessing and multithreading."""
 
-from concurrent.futures import ThreadPoolExecutor
 import logging
 import multiprocessing
 from multiprocessing import Process
