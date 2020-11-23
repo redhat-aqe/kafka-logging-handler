@@ -16,7 +16,7 @@ jobs:
           tox_env: ${{ matrix.tox_env }}
     strategy:
       matrix:
-        tox_env: [py3, flake8, mypy]
+        tox_env: [py3, black, pylint, mypy]
 
   build-and-release:
     name: Build package and release to PyPi
