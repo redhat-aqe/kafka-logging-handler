@@ -17,9 +17,8 @@ from kafka import KafkaProducer  # pylint: disable=import-error
 class KafkaLoggerException(Exception):
     """Exception to identify errors in Kafka Logger."""
 
-    pass
 
-
+# pylint: disable=too-many-instance-attributes
 class KafkaLoggingHandler(logging.Handler):
     """
     This handler enables the user to forward logs to Kafka.
@@ -47,6 +46,7 @@ class KafkaLoggingHandler(logging.Handler):
     __LOGGING_FILTER_FIELDS = ["msecs", "relativeCreated", "levelno", "created"]
     __MULTIPROCESSING_QUEUE_FLUSH_DELAY = 0.2
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         hosts_list,
@@ -54,7 +54,7 @@ class KafkaLoggingHandler(logging.Handler):
         security_protocol="SSL",
         ssl_cafile=None,
         kafka_producer_args=None,
-        additional_fields={},
+        additional_fields=None,
         flush_buffer_size=None,
         flush_interval=5.0,
         unhandled_exception_logger=None,
@@ -101,7 +101,9 @@ class KafkaLoggingHandler(logging.Handler):
         )
         self.flush_interval = flush_interval
         self.timer = None
-        self.additional_fields = additional_fields.copy()
+        self.additional_fields = {}
+        if additional_fields:
+            self.additional_fields = additional_fields.copy()
         self.additional_fields.update(
             {
                 "host": socket.gethostname(),
@@ -281,6 +283,7 @@ class KafkaLoggingHandler(logging.Handler):
         if self.unhandled_exception_logger is not None:
             # check if there are running subprocesses and log a warning
             try:
+                # pylint: disable=import-outside-toplevel
                 import psutil
 
                 main_process = psutil.Process(pid=self.main_process_pid)

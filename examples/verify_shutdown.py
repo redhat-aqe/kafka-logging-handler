@@ -1,11 +1,12 @@
 """Usage of kafka-logging-handler with multiprocessing and multithreading."""
-
+# pylint: disable=global-statement
 import logging
 import multiprocessing
-from multiprocessing import Process
 import os
 import sys
 import threading
+import time
+from multiprocessing import Process
 
 from kafka_logger.handlers import KafkaLoggingHandler
 
@@ -90,8 +91,6 @@ def main():
         )
         child_processes.append(child)
         child.start()
-
-    import time
 
     time.sleep(1)  # in the main proc only
     alive = [proc.is_alive() for proc in child_processes]

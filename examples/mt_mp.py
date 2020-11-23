@@ -1,5 +1,5 @@
 """Usage of kafka-logging-handler with multiprocessing and multithreading."""
-
+# pylint: disable=global-statement
 from concurrent.futures import ThreadPoolExecutor
 import logging
 import multiprocessing

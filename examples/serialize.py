@@ -10,6 +10,7 @@ from kafka_logger.handlers import KafkaLoggingHandler
 REQUIRED_ENV_VARS = ["KAFKA_SERVER", "KAFKA_CERT", "KAFKA_TOPIC"]
 
 
+# pylint: disable=too-few-public-methods
 class CustomClass:
     """Dummy class without __str__ method to demo logging."""
 
@@ -18,6 +19,7 @@ class CustomClass:
         self._value = value
 
 
+# pylint: disable=too-few-public-methods
 class CustomClassConvertable:
     """Dummy class with __str__ method to demo logging."""
 
