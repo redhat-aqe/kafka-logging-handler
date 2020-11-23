@@ -7,7 +7,7 @@ import sys
 
 from kafka_logger.handlers import KafkaLoggingHandler
 
-REQUIRED_ENV_VARS = ['KAFKA_SERVER', 'KAFKA_CERT', 'KAFKA_TOPIC']
+REQUIRED_ENV_VARS = ["KAFKA_SERVER", "KAFKA_CERT", "KAFKA_TOPIC"]
 
 
 class CustomClass:
@@ -18,7 +18,7 @@ class CustomClass:
         self._value = value
 
 
-class CustomClassConvertable():
+class CustomClassConvertable:
     """Dummy class with __str__ method to demo logging."""
 
     def __init__(self, value):
@@ -40,8 +40,8 @@ def main():
     log_level = logging.DEBUG
 
     log_format = logging.Formatter(
-        '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-        '%Y-%m-%dT%H:%M:%S')
+        "%(asctime)s %(name)-12s %(levelname)-8s %(message)s", "%Y-%m-%dT%H:%M:%S"
+    )
 
     # create handler to show logs at stdout
     stdout_handler = logging.StreamHandler(sys.stdout)
@@ -51,10 +51,10 @@ def main():
 
     # create Kafka logging handler
     kafka_handler = KafkaLoggingHandler(
-        os.environ['KAFKA_SERVER'],
-        os.environ['KAFKA_TOPIC'],
-        security_protocol='SSL',
-        ssl_cafile=os.environ['KAFKA_CERT'],
+        os.environ["KAFKA_SERVER"],
+        os.environ["KAFKA_TOPIC"],
+        security_protocol="SSL",
+        ssl_cafile=os.environ["KAFKA_CERT"],
         unhandled_exception_logger=logger,
     )
     kafka_handler.setFormatter(log_format)
@@ -66,10 +66,9 @@ def main():
     logger.info("Test log with multiple parameters: %d %f", 42, 43.2)
 
     logger.info("Test log with str parameter: %s", "test1")
-    logger.info("Test log with multiple str parameters: %s %s",
-                "test1", "test2")
+    logger.info("Test log with multiple str parameters: %s %s", "test1", "test2")
 
-    custom_object = CustomClassConvertable('test')
+    custom_object = CustomClassConvertable("test")
     # formatting uses __repr__ if __str__ method isn't available
     logger.info("Test logging of custom obj: %s", custom_object)
     # log record will contain the following values:
@@ -83,17 +82,20 @@ def main():
     except TypeError:
         logger.exception("Attempt to log non JSON serializable data")
     # please transform extra values to JSON
-    logger.info("Test custom objects in extra argument", extra={
-        "custom_field_number": 42,
-        "custom_field_json": {"a": "test", "b": "test"}
-    })
+    logger.info(
+        "Test custom objects in extra argument",
+        extra={
+            "custom_field_number": 42,
+            "custom_field_json": {"a": "test", "b": "test"},
+        },
+    )
 
     # logging single object without formatting
-    custom_object_with_str = CustomClassConvertable('test w/ str method')
+    custom_object_with_str = CustomClassConvertable("test w/ str method")
     logger.info(custom_object_with_str)  # object has __str__ method
-    custom_object_wo_str = CustomClass('test w/o str method')
+    custom_object_wo_str = CustomClass("test w/o str method")
     logger.info(custom_object_wo_str)  # str() will use repr()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
