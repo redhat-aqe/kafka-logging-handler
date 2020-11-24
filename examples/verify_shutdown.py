@@ -1,16 +1,16 @@
 """Usage of kafka-logging-handler with multiprocessing and multithreading."""
-
-from concurrent.futures import ThreadPoolExecutor
+# pylint: disable=global-statement
 import logging
 import multiprocessing
-from multiprocessing import Process
 import os
 import sys
 import threading
+import time
+from multiprocessing import Process
 
 from kafka_logger.handlers import KafkaLoggingHandler
 
-REQUIRED_ENV_VARS = ['KAFKA_SERVER', 'KAFKA_CERT', 'KAFKA_TOPIC']
+REQUIRED_ENV_VARS = ["KAFKA_SERVER", "KAFKA_CERT", "KAFKA_TOPIC"]
 
 CHILD_PROCESSES = 5
 CHILD_THREADS = 5
@@ -23,8 +23,7 @@ def get_process_thread():
     # you can get PID and thread ID as well:
     # os.getpid(), threading.current_thread().ident
     return "(process: {}, thread: {})".format(
-        multiprocessing.current_process().name,
-        threading.current_thread().name
+        multiprocessing.current_process().name, threading.current_thread().name
     )
 
 
@@ -41,8 +40,9 @@ def child_process(index):
 
 def thread_function(index):
     """Log a message."""
-    LOGGER.info("Hi, I'm a thread #%d in the main process %s",
-                index, get_process_thread())
+    LOGGER.info(
+        "Hi, I'm a thread #%d in the main process %s", index, get_process_thread()
+    )
     logging.shutdown()
 
 
@@ -58,8 +58,8 @@ def main():
     log_level = logging.DEBUG
 
     log_format = logging.Formatter(
-        '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-        '%Y-%m-%dT%H:%M:%S')
+        "%(asctime)s %(name)-12s %(levelname)-8s %(message)s", "%Y-%m-%dT%H:%M:%S"
+    )
 
     # create handler to show logs at stdout
     stdout_handler = logging.StreamHandler(sys.stdout)
@@ -69,14 +69,12 @@ def main():
 
     # create Kafka logging handler
     kafka_handler = KafkaLoggingHandler(
-        os.environ['KAFKA_SERVER'],
-        os.environ['KAFKA_TOPIC'],
-        security_protocol='SSL',
-        ssl_cafile=os.environ['KAFKA_CERT'],
+        os.environ["KAFKA_SERVER"],
+        os.environ["KAFKA_TOPIC"],
+        security_protocol="SSL",
+        ssl_cafile=os.environ["KAFKA_CERT"],
         unhandled_exception_logger=LOGGER,
-        additional_fields={
-            "service": "test_service"
-        }
+        additional_fields={"service": "test_service"},
     )
     kafka_handler.setFormatter(log_format)
     LOGGER.addHandler(kafka_handler)
@@ -89,33 +87,32 @@ def main():
     child_processes = []
     for idx in range(CHILD_PROCESSES):
         child = Process(
-            target=child_process,
-            name="Child process #{}".format(idx),
-            args=(idx,))
+            target=child_process, name="Child process #{}".format(idx), args=(idx,)
+        )
         child_processes.append(child)
         child.start()
 
-    import time
     time.sleep(1)  # in the main proc only
     alive = [proc.is_alive() for proc in child_processes]
     assert not any(alive)
 
-    LOGGER.info('Multiprocessing logging.shutdown() works')
+    LOGGER.info("Multiprocessing logging.shutdown() works")
 
     threads = []
     for idx in range(CHILD_THREADS):
         thread = threading.Thread(
             target=thread_function,
             name="Thread of the main process #{}".format(idx),
-            args=(idx, ))
+            args=(idx,),
+        )
         threads.append(thread)
         thread.start()
     # wait for threads to finish
     for thread in threads:
         thread.join()
 
-    LOGGER.info('Multithreding logging.shutdown() works')
+    LOGGER.info("Multithreding logging.shutdown() works")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -1,15 +1,15 @@
 """This module contains logging handler which forwards logs to Kafka."""
 
 import atexit
+import datetime
 import json
 import logging
-from multiprocessing import Queue
+import multiprocessing
 import os
 import socket
 import sys
 from threading import Lock, Thread, Timer
 import time
-import datetime
 
 from kafka import KafkaProducer  # pylint: disable=import-error
 
@@ -17,9 +17,8 @@ from kafka import KafkaProducer  # pylint: disable=import-error
 class KafkaLoggerException(Exception):
     """Exception to identify errors in Kafka Logger."""
 
-    pass
 
-
+# pylint: disable=too-many-instance-attributes
 class KafkaLoggingHandler(logging.Handler):
     """
     This handler enables the user to forward logs to Kafka.
@@ -44,23 +43,23 @@ class KafkaLoggingHandler(logging.Handler):
 
     """
 
-    __LOGGING_FILTER_FIELDS = ['msecs',
-                               'relativeCreated',
-                               'levelno',
-                               'created']
+    __LOGGING_FILTER_FIELDS = ["msecs", "relativeCreated", "levelno", "created"]
     __MULTIPROCESSING_QUEUE_FLUSH_DELAY = 0.2
 
-    def __init__(self,
-                 hosts_list,
-                 topic,
-                 security_protocol='SSL',
-                 ssl_cafile=None,
-                 kafka_producer_args=None,
-                 additional_fields={},
-                 flush_buffer_size=None,
-                 flush_interval=5.0,
-                 unhandled_exception_logger=None,
-                 log_preprocess=None):
+    # pylint: disable=too-many-arguments
+    def __init__(
+        self,
+        hosts_list,
+        topic,
+        security_protocol="SSL",
+        ssl_cafile=None,
+        kafka_producer_args=None,
+        additional_fields=None,
+        flush_buffer_size=None,
+        flush_interval=5.0,
+        unhandled_exception_logger=None,
+        log_preprocess=None,
+    ):
         """
         Initialize the handler.
 
@@ -89,7 +88,7 @@ class KafkaLoggingHandler(logging.Handler):
         """
         logging.Handler.__init__(self)
 
-        if security_protocol == 'SSL' and ssl_cafile is None:
+        if security_protocol == "SSL" and ssl_cafile is None:
             raise KafkaLoggerException("SSL CA file isn't provided.")
 
         self.kafka_topic_name = topic
@@ -97,17 +96,21 @@ class KafkaLoggingHandler(logging.Handler):
 
         self.buffer = []
         self.buffer_lock = Lock()
-        self.max_buffer_size = flush_buffer_size \
-            if flush_buffer_size is not None else float("inf")
+        self.max_buffer_size = (
+            flush_buffer_size if flush_buffer_size is not None else float("inf")
+        )
         self.flush_interval = flush_interval
         self.timer = None
-        self.additional_fields = additional_fields.copy()
-        self.additional_fields.update({
-            'host': socket.gethostname(),
-            'host_ip': socket.gethostbyname(socket.gethostname())
-        })
-        self.log_preprocess = \
-            log_preprocess if log_preprocess is not None else []
+        self.additional_fields = {}
+        if additional_fields:
+            self.additional_fields = additional_fields.copy()
+        self.additional_fields.update(
+            {
+                "host": socket.gethostname(),
+                "host_ip": socket.gethostbyname(socket.gethostname()),
+            }
+        )
+        self.log_preprocess = log_preprocess if log_preprocess is not None else []
 
         if kafka_producer_args is None:
             kafka_producer_args = {}
@@ -117,7 +120,8 @@ class KafkaLoggingHandler(logging.Handler):
             security_protocol=security_protocol,
             ssl_cafile=ssl_cafile,
             value_serializer=lambda msg: json.dumps(msg).encode("utf-8"),
-            **kafka_producer_args)
+            **kafka_producer_args
+        )
 
         # setup exit hooks
         # exit hooks work only in main process
@@ -130,12 +134,12 @@ class KafkaLoggingHandler(logging.Handler):
 
         # multiprocessing support
         self.main_process_pid = os.getpid()
-        self.mp_log_queue = Queue()
+        self.mp_log_queue = multiprocessing.Queue()
         # main process thread that will flush mp queue
         self.mp_log_handler_flush_lock = Lock()
         self.mp_log_handler_thread = Thread(
-            target=self.mp_log_handler,
-            name="Kafka Logger Multiprocessing Handler")
+            target=self.mp_log_handler, name="Kafka Logger Multiprocessing Handler"
+        )
         # daemon will terminate with the main process
         self.mp_log_handler_thread.setDaemon(True)
         self.mp_log_handler_thread.start()
@@ -176,14 +180,13 @@ class KafkaLoggingHandler(logging.Handler):
                     # if there is no formatting in the logging call
                     value = str(value)
                 rec[key] = "" if value is None else value
-            if key == 'created':
+            if key == "created":
                 # inspired by: cmanaha/python-elasticsearch-logger
-                created_date = \
-                    datetime.datetime.utcfromtimestamp(record.created)
-                rec['timestamp'] = \
-                    "{0!s}.{1:03d}Z".format(
-                        created_date.strftime('%Y-%m-%dT%H:%M:%S'),
-                        int(created_date.microsecond / 1000))
+                created_date = datetime.datetime.utcfromtimestamp(record.created)
+                rec["timestamp"] = "{0!s}.{1:03d}Z".format(
+                    created_date.strftime("%Y-%m-%dT%H:%M:%S"),
+                    int(created_date.microsecond / 1000),
+                )
         # apply preprocessor(s)
         for preprocessor in self.log_preprocess:
             rec = preprocessor(rec)
@@ -198,7 +201,7 @@ class KafkaLoggingHandler(logging.Handler):
             record: Logging message
         """
         # drop Kafka logging to avoid infinite recursion.
-        if record.name == 'kafka.client':
+        if record.name == "kafka.client":
             return
 
         record_dict = self.prepare_record_dict(record)
@@ -280,7 +283,9 @@ class KafkaLoggingHandler(logging.Handler):
         if self.unhandled_exception_logger is not None:
             # check if there are running subprocesses and log a warning
             try:
+                # pylint: disable=import-outside-toplevel
                 import psutil
+
                 main_process = psutil.Process(pid=self.main_process_pid)
             except ImportError:
                 pass
@@ -292,7 +297,8 @@ class KafkaLoggingHandler(logging.Handler):
                     self.unhandled_exception_logger.warning(
                         "There are %d child process(es) at the moment of the "
                         "main process termination. This may cause logs loss.",
-                        len(children))
+                        len(children),
+                    )
         while self.mp_log_queue.qsize() != 0:
             time.sleep(KafkaLoggingHandler.__MULTIPROCESSING_QUEUE_FLUSH_DELAY)
         # wait until everything in multiprocessing queue will be buffered
@@ -318,10 +324,19 @@ class KafkaLoggingHandler(logging.Handler):
                 # sys.exc_info returns (None, None, None) w/o context
                 # this override fixes exception logging in Python 2
                 original_exc_info = sys.exc_info
-                sys.exc_info = lambda: (exctype, exception, traceback, )
+                sys.exc_info = lambda: (
+                    exctype,
+                    exception,
+                    traceback,
+                )
             self.unhandled_exception_logger.exception(
                 "Unhandled top-level exception",
-                exc_info=(exctype, exception, traceback, ))
+                exc_info=(
+                    exctype,
+                    exception,
+                    traceback,
+                ),
+            )
             if sys.version_info[0] < 3:
                 # remove exc_info override back
                 sys.exc_info = original_exc_info
