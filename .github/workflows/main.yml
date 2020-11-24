@@ -1,4 +1,4 @@
-name: CI/CD release pipeline
+name: release-pipeline
 
 # Run this workflow every time a new commit pushed to your repository
 on: push
