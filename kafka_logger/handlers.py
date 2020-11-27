@@ -4,12 +4,13 @@ import atexit
 import datetime
 import json
 import logging
-import multiprocessing
+from multiprocessing import Queue
 import os
 import socket
 import sys
 from threading import Lock, Thread, Timer
 import time
+import random
 
 from kafka import KafkaProducer  # pylint: disable=import-error
 
@@ -46,7 +47,6 @@ class KafkaLoggingHandler(logging.Handler):
     __LOGGING_FILTER_FIELDS = ["msecs", "relativeCreated", "levelno", "created"]
     __MULTIPROCESSING_QUEUE_FLUSH_DELAY = 0.2
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         hosts_list,
@@ -54,12 +54,15 @@ class KafkaLoggingHandler(logging.Handler):
         security_protocol="SSL",
         ssl_cafile=None,
         kafka_producer_args=None,
+        kafka_producer_init_retries=0,
+        kafka_producer_init_delay_ms=3000,
+        kafka_producer_init_delay_rand_ms=500,
         additional_fields=None,
         flush_buffer_size=None,
         flush_interval=5.0,
         unhandled_exception_logger=None,
         log_preprocess=None,
-    ):
+    ):  # pylint: disable=too-many-arguments,too-many-locals
         """
         Initialize the handler.
 
@@ -70,6 +73,12 @@ class KafkaLoggingHandler(logging.Handler):
             ssl_cafile (None, optional): path to CA file
             kafka_producer_args (None, optional):
                 extra arguments to pass to KafkaProducer
+            kafka_producer_init_retries (int, optional):
+                number of additional attempts to initialize Kafka producer
+            kafka_producer_init_delay_ms (int, optional):
+                static delay for attempts to initialize producer
+            kafka_producer_init_delay_rand_ms (int, optional):
+                randomized delay for attempts to initialize producer
             additional_fields (None, optional):
                 A dictionary with all the additional fields that you would like
                 to add to the logs, such the application, environment, etc.
@@ -103,7 +112,9 @@ class KafkaLoggingHandler(logging.Handler):
             )
             self.flush_interval = flush_interval
             self.timer = None
-            self.additional_fields = additional_fields.copy()
+            self.additional_fields = (
+                additional_fields.copy() if additional_fields is not None else {}
+            )
             self.additional_fields.update(
                 {
                     "host": socket.gethostname(),
@@ -115,13 +126,26 @@ class KafkaLoggingHandler(logging.Handler):
             if kafka_producer_args is None:
                 kafka_producer_args = {}
 
-            self.producer = KafkaProducer(
-                bootstrap_servers=hosts_list,
-                security_protocol=security_protocol,
-                ssl_cafile=ssl_cafile,
-                value_serializer=lambda msg: json.dumps(msg).encode("utf-8"),
-                **kafka_producer_args
-            )
+            for init_attempt in range(kafka_producer_init_retries + 1, 0, -1):
+                try:
+                    self.producer = KafkaProducer(
+                        bootstrap_servers=hosts_list,
+                        security_protocol=security_protocol,
+                        ssl_cafile=ssl_cafile,
+                        value_serializer=lambda msg: json.dumps(msg).encode("utf-8"),
+                        **kafka_producer_args
+                    )
+                except Exception:  # pylint: disable=broad-except
+                    if init_attempt == 1:  # last attempt failed
+                        raise
+                    logging.exception("Exception during Kafka producer init")
+                    attempt_delay = kafka_producer_init_delay_ms + random.randint(
+                        0, kafka_producer_init_delay_rand_ms
+                    )
+                    logging.debug("Sleeping %d ms", attempt_delay)
+                    time.sleep(attempt_delay / 1000)
+                else:
+                    break
 
             # setup exit hooks
             # exit hooks work only in main process
@@ -146,7 +170,7 @@ class KafkaLoggingHandler(logging.Handler):
 
             self.enabled = True
 
-        except Exception:
+        except Exception:  # pylint: disable=broad-except
             logging.exception("Startup error of the Kafka logging handler")
 
             # teardown failed startup
