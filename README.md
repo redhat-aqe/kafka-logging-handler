@@ -30,3 +30,20 @@ logger.setLevel(logging.DEBUG)
 
 logger.info('Happy Logging!')
 ```
+
+Troubleshooting
+----------
+
+If you see the following error when running on macOS:
+
+```
+Traceback (most recent call last):
+  File "/path/to/kafka-logging-handler/kafka_logger/handlers.py", line 109, in __init__
+    'host_ip': socket.gethostbyname(socket.gethostname())
+socket.gaierror: [Errno 8] nodename nor servname provided, or not known
+```
+
+The issues is that `socket.gethostname()` resolves to a name that is not available in `/etc/hosts`.
+First run `python3 -c "import socket; print(socket.gethostname())"` to get the name (e.g. `MacBook-Pro`).
+Then fix it with `sudo echo 127.0.0.1 MacBook-Pro >> /etc/hosts`, where `MacBook-Pro` is your computer name.
+There won't be OS-specific fix for it in the library.

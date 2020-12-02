@@ -299,7 +299,7 @@ class KafkaLoggingHandler(logging.Handler):
                         "main process termination. This may cause logs loss.",
                         len(children),
                     )
-        while self.mp_log_queue.qsize() != 0:
+        while not self.mp_log_queue.empty():
             time.sleep(KafkaLoggingHandler.__MULTIPROCESSING_QUEUE_FLUSH_DELAY)
         # wait until everything in multiprocessing queue will be buffered
         self.mp_log_handler_flush_lock.acquire()
