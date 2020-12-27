@@ -7,7 +7,7 @@ PROJECT_ROOT, _ = os.path.split(__file__)
 NAME = "kafka-logging-handler"
 EMAILS = "mbirger@redhat.com, mjahudko@readhat.com, rmonegro@redhat.com"
 AUTHORS = "Mark Birger, Michaela Jahudkova, Robert Monegro"
-VERSION = "0.2.4"
+VERSION = "0.2.5"
 
 URL = "https://github.com/redhat-aqe/kafka-logging-handler"
 LICENSE = "GPLv3"
