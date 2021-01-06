@@ -4,12 +4,13 @@ import atexit
 import datetime
 import json
 import logging
-import multiprocessing
+from multiprocessing import Queue
 import os
 import socket
 import sys
 from threading import Lock, Thread, Timer
 import time
+import random
 
 from kafka import KafkaProducer  # pylint: disable=import-error
 
@@ -46,7 +47,6 @@ class KafkaLoggingHandler(logging.Handler):
     __LOGGING_FILTER_FIELDS = ["msecs", "relativeCreated", "levelno", "created"]
     __MULTIPROCESSING_QUEUE_FLUSH_DELAY = 0.2
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         hosts_list,
@@ -54,12 +54,15 @@ class KafkaLoggingHandler(logging.Handler):
         security_protocol="SSL",
         ssl_cafile=None,
         kafka_producer_args=None,
+        kafka_producer_init_retries=0,
+        kafka_producer_init_delay_ms=3000,
+        kafka_producer_init_delay_rand_ms=500,
         additional_fields=None,
         flush_buffer_size=None,
         flush_interval=5.0,
         unhandled_exception_logger=None,
         log_preprocess=None,
-    ):
+    ):  # pylint: disable=too-many-arguments,too-many-locals
         """
         Initialize the handler.
 
@@ -70,6 +73,12 @@ class KafkaLoggingHandler(logging.Handler):
             ssl_cafile (None, optional): path to CA file
             kafka_producer_args (None, optional):
                 extra arguments to pass to KafkaProducer
+            kafka_producer_init_retries (int, optional):
+                number of additional attempts to initialize Kafka producer
+            kafka_producer_init_delay_ms (int, optional):
+                static delay for attempts to initialize producer
+            kafka_producer_init_delay_rand_ms (int, optional):
+                randomized delay for attempts to initialize producer
             additional_fields (None, optional):
                 A dictionary with all the additional fields that you would like
                 to add to the logs, such the application, environment, etc.
@@ -87,62 +96,85 @@ class KafkaLoggingHandler(logging.Handler):
 
         """
         logging.Handler.__init__(self)
+        self.enabled = False
 
-        if security_protocol == "SSL" and ssl_cafile is None:
-            raise KafkaLoggerException("SSL CA file isn't provided.")
+        try:
+            if security_protocol == "SSL" and ssl_cafile is None:
+                raise KafkaLoggerException("SSL CA file isn't provided.")
 
-        self.kafka_topic_name = topic
-        self.unhandled_exception_logger = unhandled_exception_logger
+            self.kafka_topic_name = topic
+            self.unhandled_exception_logger = unhandled_exception_logger
 
-        self.buffer = []
-        self.buffer_lock = Lock()
-        self.max_buffer_size = (
-            flush_buffer_size if flush_buffer_size is not None else float("inf")
-        )
-        self.flush_interval = flush_interval
-        self.timer = None
-        self.additional_fields = {}
-        if additional_fields:
-            self.additional_fields = additional_fields.copy()
-        self.additional_fields.update(
-            {
-                "host": socket.gethostname(),
-                "host_ip": socket.gethostbyname(socket.gethostname()),
-            }
-        )
-        self.log_preprocess = log_preprocess if log_preprocess is not None else []
+            self.buffer = []
+            self.buffer_lock = Lock()
+            self.max_buffer_size = (
+                flush_buffer_size if flush_buffer_size is not None else float("inf")
+            )
+            self.flush_interval = flush_interval
+            self.timer = None
+            self.additional_fields = (
+                additional_fields.copy() if additional_fields is not None else {}
+            )
+            self.additional_fields.update(
+                {
+                    "host": socket.gethostname(),
+                    "host_ip": socket.gethostbyname(socket.gethostname()),
+                }
+            )
+            self.log_preprocess = log_preprocess if log_preprocess is not None else []
 
-        if kafka_producer_args is None:
-            kafka_producer_args = {}
+            if kafka_producer_args is None:
+                kafka_producer_args = {}
 
-        self.producer = KafkaProducer(
-            bootstrap_servers=hosts_list,
-            security_protocol=security_protocol,
-            ssl_cafile=ssl_cafile,
-            value_serializer=lambda msg: json.dumps(msg).encode("utf-8"),
-            **kafka_producer_args
-        )
+            for init_attempt in range(kafka_producer_init_retries + 1, 0, -1):
+                try:
+                    self.producer = KafkaProducer(
+                        bootstrap_servers=hosts_list,
+                        security_protocol=security_protocol,
+                        ssl_cafile=ssl_cafile,
+                        value_serializer=lambda msg: json.dumps(msg).encode("utf-8"),
+                        **kafka_producer_args
+                    )
+                except Exception:  # pylint: disable=broad-except
+                    if init_attempt == 1:  # last attempt failed
+                        raise
+                    logging.exception("Exception during Kafka producer init")
+                    attempt_delay = kafka_producer_init_delay_ms + random.randint(
+                        0, kafka_producer_init_delay_rand_ms
+                    )
+                    logging.debug("Sleeping %d ms", attempt_delay)
+                    time.sleep(attempt_delay / 1000)
+                else:
+                    break
 
-        # setup exit hooks
-        # exit hooks work only in main process
-        # termination of child processes uses os.exit() and ignore any hooks
-        atexit.register(self.at_exit)
+            # setup exit hooks
+            # exit hooks work only in main process
+            # termination of child processes uses os.exit() and ignore any hooks
+            atexit.register(self.at_exit)
 
-        # Dont touch sys.excepthook if no logger provided
-        if self.unhandled_exception_logger is not None:
-            sys.excepthook = self.unhandled_exception
+            # Dont touch sys.excepthook if no logger provided
+            if self.unhandled_exception_logger is not None:
+                sys.excepthook = self.unhandled_exception
 
-        # multiprocessing support
-        self.main_process_pid = os.getpid()
-        self.mp_log_queue = multiprocessing.Queue()
-        # main process thread that will flush mp queue
-        self.mp_log_handler_flush_lock = Lock()
-        self.mp_log_handler_thread = Thread(
-            target=self.mp_log_handler, name="Kafka Logger Multiprocessing Handler"
-        )
-        # daemon will terminate with the main process
-        self.mp_log_handler_thread.setDaemon(True)
-        self.mp_log_handler_thread.start()
+            # multiprocessing support
+            self.main_process_pid = os.getpid()
+            self.mp_log_queue = Queue()
+            # main process thread that will flush mp queue
+            self.mp_log_handler_flush_lock = Lock()
+            self.mp_log_handler_thread = Thread(
+                target=self.mp_log_handler, name="Kafka Logger Multiprocessing Handler"
+            )
+            # daemon will terminate with the main process
+            self.mp_log_handler_thread.setDaemon(True)
+            self.mp_log_handler_thread.start()
+
+            self.enabled = True
+
+        except Exception:  # pylint: disable=broad-except
+            logging.exception("Startup error of the Kafka logging handler")
+
+            # teardown failed startup
+            atexit.unregister(self.at_exit)
 
     def prepare_record_dict(self, record):
         """
@@ -204,6 +236,9 @@ class KafkaLoggingHandler(logging.Handler):
         if record.name == "kafka.client":
             return
 
+        if not self.enabled:
+            return
+
         record_dict = self.prepare_record_dict(record)
 
         if os.getpid() == self.main_process_pid:
@@ -236,10 +271,15 @@ class KafkaLoggingHandler(logging.Handler):
         Skip if the buffer is empty.
         Uses multithreading lock to access buffer.
         """
+        # logging.shutdown() can trigger flush() directly
+        # main_process_pid is unknown if startup failed
+        if not self.enabled:
+            return
+
         # if flush is triggered in a child process => skip
-        # logging.shutdown() can trigger flush()
         if os.getpid() != self.main_process_pid:
             return
+
         # clean up the timer (reached max buffer size)
         if self.timer is not None and self.timer.is_alive():
             self.timer.cancel()
@@ -299,7 +339,7 @@ class KafkaLoggingHandler(logging.Handler):
                         "main process termination. This may cause logs loss.",
                         len(children),
                     )
-        while self.mp_log_queue.qsize() != 0:
+        while not self.mp_log_queue.empty():
             time.sleep(KafkaLoggingHandler.__MULTIPROCESSING_QUEUE_FLUSH_DELAY)
         # wait until everything in multiprocessing queue will be buffered
         self.mp_log_handler_flush_lock.acquire()
