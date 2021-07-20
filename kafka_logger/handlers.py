@@ -46,12 +46,16 @@ class KafkaLoggingHandler(logging.Handler):
 
     __LOGGING_FILTER_FIELDS = ["msecs", "relativeCreated", "levelno", "created"]
     __MULTIPROCESSING_QUEUE_FLUSH_DELAY = 0.2
+    __DEFAULT_LOG_CLIENT_NAME = "kafka.client"
 
     def __init__(
         self,
         hosts_list,
         topic,
         security_protocol="SSL",
+        sasl_mechanism=None,
+        sasl_plain_username=None,
+        sasl_plain_password=None,
         ssl_cafile=None,
         kafka_producer_args=None,
         kafka_producer_init_retries=0,
@@ -118,7 +122,7 @@ class KafkaLoggingHandler(logging.Handler):
             self.additional_fields.update(
                 {
                     "host": socket.gethostname(),
-                    "host_ip": socket.gethostbyname(socket.gethostname()),
+                    # "host_ip": socket.gethostbyname(socket.gethostname()),
                 }
             )
             self.log_preprocess = log_preprocess if log_preprocess is not None else []
@@ -132,6 +136,9 @@ class KafkaLoggingHandler(logging.Handler):
                         bootstrap_servers=hosts_list,
                         security_protocol=security_protocol,
                         ssl_cafile=ssl_cafile,
+                        sasl_plain_username=sasl_plain_username,
+                        sasl_plain_password=sasl_plain_password,
+                        sasl_mechanism=sasl_mechanism,
                         value_serializer=lambda msg: json.dumps(msg).encode("utf-8"),
                         **kafka_producer_args
                     )
@@ -233,7 +240,7 @@ class KafkaLoggingHandler(logging.Handler):
             record: Logging message
         """
         # drop Kafka logging to avoid infinite recursion.
-        if record.name == "kafka.client":
+        if record.name == self.__DEFAULT_LOG_CLIENT_NAME:
             return
 
         if not self.enabled:

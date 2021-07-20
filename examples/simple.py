@@ -4,16 +4,35 @@ import logging
 import os
 import sys
 import time
-
+import configparser
+sys.path.append(
+    os.path.realpath(os.path.join(os.path.dirname(__file__), os.path.pardir))
+)
 from kafka_logger.handlers import KafkaLoggingHandler
 
-REQUIRED_ENV_VARS = ["KAFKA_SERVER", "KAFKA_CERT", "KAFKA_TOPIC"]
+sasl_mechanism = 'SCRAM-SHA-256'
+security_protocol = 'SASL_SSL'
+username = ""
+password = ""
+KAFKA_SERVER = "localhost:9094"
+KAFKA_TOPIC = "default_topic"
 
 
-def main():
+def main(settings_ini: str):    
     """Setup logger and test logging."""
+    global KAFKA_SERVER, KAFKA_TOPIC, username, password, sasl_mechanism, security_protocol
     # validate that Kafka configuration is available
-    assert all([(key in os.environ) for key in REQUIRED_ENV_VARS])
+    confg = configparser.ConfigParser(
+        allow_no_value=True, interpolation=configparser.ExtendedInterpolation()
+    )
+    confg.read(settings_ini)
+    section = confg['KAFKA']
+    topics = section.pop('topics').split(",")
+    KAFKA_TOPIC = topics[0]
+    KAFKA_SERVER = section['bootstrap_servers']
+    username = section['username']
+    password = section['password']
+    sasl_mechanism, security_protocol = section['sasl_mechanism'], section['security_protocol']
 
     logger = logging.getLogger("test.logger")
     logger.propagate = False
@@ -31,10 +50,12 @@ def main():
 
     # create Kafka logging handler
     kafka_handler = KafkaLoggingHandler(
-        os.environ["KAFKA_SERVER"],
-        os.environ["KAFKA_TOPIC"],
-        security_protocol="SSL",
-        ssl_cafile=os.environ["KAFKA_CERT"],
+        KAFKA_SERVER,
+        KAFKA_TOPIC,
+        security_protocol=security_protocol,
+        sasl_mechanism=sasl_mechanism,
+        sasl_plain_username=username,
+        sasl_plain_password=password,
         # you can configure how often logger will send logs to Kafka
         # flush_buffer_size=3,  # uncomment to see that it works slower
         # flush_interval=3.0,  # interval in seconds
@@ -42,6 +63,7 @@ def main():
         kafka_producer_args={
             "api_version_auto_timeout_ms": 1000000,
             "request_timeout_ms": 1000000,
+            "retries": 5
         },
         # you can include arbitrary fields to all produced logs
         additional_fields={"service": "test_service"},
@@ -62,4 +84,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main("kafka-settings.ini")
