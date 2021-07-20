@@ -6,7 +6,7 @@ from pprint import pprint
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Decentralized logging using dweet server")
+    parser = argparse.ArgumentParser(description="Decentralized logging using kafka server")
 
     parser.add_argument(
         "--settings_ini",

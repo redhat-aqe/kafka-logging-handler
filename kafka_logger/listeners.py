@@ -2,13 +2,14 @@ from kafka import KafkaConsumer
 from typing import List
 import json
 
+
 def listen_channel_output(
     topics: List[str], bootstrap_servers: str,
     username: str = None, password: str = None,
     security_protocol: str = 'PLAINTEXT', sasl_mechanism: str = None,
     timeout=200000, **kwargs
 ):
-    """ Listen to log publish in the dweet channel from remote server
+    """ Listen to log publish in the kafka topic
 
     :raises Exception: [description]
     :return: [description]
