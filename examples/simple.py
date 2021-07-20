@@ -18,7 +18,23 @@ KAFKA_SERVER = "localhost:9094"
 KAFKA_TOPIC = "default_topic"
 
 
-def main(settings_ini: str):    
+class DefaultPartitioner:
+    """Default partitioner.
+    Return the first available partition
+    """
+    @classmethod
+    def __call__(cls, key, all_partitions, available):
+        """
+        Get the partition corresponding to key
+        :param key: partitioning key
+        :param all_partitions: list of all partitions sorted by partition ID
+        :param available: list of available partitions in no particular order
+        :return: one of the values from all_partitions or available
+        """
+        return available[0] if available else all_partitions[0]
+
+
+def main(settings_ini: str):
     """Setup logger and test logging."""
     global KAFKA_SERVER, KAFKA_TOPIC, username, password, sasl_mechanism, security_protocol
     # validate that Kafka configuration is available

@@ -31,6 +31,9 @@ setup(
     version=VERSION,
     author=AUTHORS,
     author_email=EMAILS,
+    entry_points={
+        'console_script': ["kafka_logger_cli=cli:main"],
+    },
     packages=find_packages(".", exclude=("tests")),
     install_requires=INSTALL_REQUIRES,
     url=URL,

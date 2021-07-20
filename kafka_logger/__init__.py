@@ -6,6 +6,23 @@ import sys
 import configparser
 
 
+class DefaultPartitioner:
+    """Default partitioner.
+    Return the first available partition, the purpose of using this configuration
+    so that the stream maintain the correct order in the listener
+    """
+    @classmethod
+    def __call__(cls, key, all_partitions, available):
+        """
+        Get the partition corresponding to key
+        :param key: partitioning key
+        :param all_partitions: list of all partitions sorted by partition ID
+        :param available: list of available partitions in no particular order
+        :return: one of the values from all_partitions or available
+        """
+        return available[0] if available else all_partitions[0]
+
+
 def init_kafka_logger(name: str, settings_ini: str):
     confg = configparser.ConfigParser(
         allow_no_value=True, interpolation=configparser.ExtendedInterpolation()
@@ -48,6 +65,7 @@ def init_kafka_logger(name: str, settings_ini: str):
         kafka_producer_args={
             "api_version_auto_timeout_ms": 1000000,
             "request_timeout_ms": 1000000,
+            "partitioner": DefaultPartitioner(),
             "retries": 5
         },
         # you can include arbitrary fields to all produced logs

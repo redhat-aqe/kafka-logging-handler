@@ -1,3 +1,6 @@
+# !pip install git+https://github.com/sandyz1000/kafka-logging-handler.git@devel
+# !pip install git+https://github.com/sandyz1000/colabshell.git
+
 # %%
 import os
 import sys

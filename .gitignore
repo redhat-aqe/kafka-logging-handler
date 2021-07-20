@@ -4,7 +4,7 @@ __pycache__/
 *$py.class
 .vscode
 .DS_Store
-kakfa-settings.ini
+kafka-settings.ini
 
 # C extensions
 *.so
