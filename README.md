@@ -1,10 +1,16 @@
 Kafka Logging Handler
 =====================
-[![Downloads](https://pepy.tech/badge/kafka-logging-handler)](https://pepy.tech/project/kafka-logging-handler)
-![Workflow](https://github.com/redhat-aqe/kafka-logging-handler/workflows/release-pipeline/badge.svg)
-
 
 The following library simplifies the process of forwarding logs to a Kafka consumer.
+
+## Installation
+
+Installation is easy!
+
+```
+$ pip install git+https://github.com/sandyz1000/kafka-logging-handler.git
+```
+
 
 How to Use
 ----------
@@ -31,6 +37,58 @@ logger.setLevel(logging.DEBUG)
 logger.info('Happy Logging!')
 ```
 
+Using Setting.ini (Here we are trying to use shell in kaggle notebook), to download colabshell you can clone from 
+[here](https://github.com/sandyz1000/colabshell)
+
+-----------------
+
+```python
+from kafka_logger import init_kafka_logger, OutputLogger
+from colabshell import ColabShell
+
+logger = init_kafka_logger("kafka.logger", "../kafka_logger/settings.ini")
+
+logger.info("Initializing decentralized logging")
+with OutputLogger(logger) as redirect:
+    print("From redirector")
+    shell = ColabShell(port=10001, username='colabshell', password='password')
+    shell.run()
+
+```
+
+### Your typical setting file will look like this
+
+```
+
+[DEFAULT]
+timeout = 2000000
+log_level = DEBUG
+log_dir = logs
+
+; General log configuration
+[LOG_FORMATTER]
+to_json=True
+format=%(asctime)s:%(levelname)s:%(name)s:%(message)s
+; # format='%(relativeCreated)6.1f %(threadName)12s: %(levelname).1s %(module)8.8s:%(lineno)-4d %(message)s',
+log_max_bytes=1024 * 1024 * 10
+log_backups=5
+relay_stdout=True
+
+; # Kafka Configuration
+[KAFKA]
+bootstrap_servers = localhost:9094
+username =
+password =
+topics = default,decentlog
+timeout=${DEFAULT:timeout}
+group_id=default-consumer
+sasl_plain_username=
+sasl_plain_password=
+kafka_retry=5
+sasl_mechanism=
+security_protocol=PLAINTEXT
+
+```
 Troubleshooting
 ----------
 
