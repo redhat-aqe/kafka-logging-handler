@@ -2,6 +2,9 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.vscode
+.DS_Store
+kafka-settings.ini
 
 # C extensions
 *.so

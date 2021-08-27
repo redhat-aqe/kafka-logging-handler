@@ -1,28 +1,28 @@
-"""Simple usage example of kafka-logging-handler."""
 
 import logging
-import os
 import sys
-import time
 import configparser
-sys.path.append(
-    os.path.realpath(os.path.join(os.path.dirname(__file__), os.path.pardir))
-)
 from kafka_logger.handlers import KafkaLoggingHandler
-from kafka_logger import DefaultPartitioner
-
-sasl_mechanism = 'SCRAM-SHA-256'
-security_protocol = 'SASL_SSL'
-username = ""
-password = ""
-KAFKA_SERVER = "localhost:9094"
-KAFKA_TOPIC = "default_topic"
 
 
-def main(settings_ini: str):
-    """Setup logger and test logging."""
-    global KAFKA_SERVER, KAFKA_TOPIC, username, password, sasl_mechanism, security_protocol
-    # validate that Kafka configuration is available
+class DefaultPartitioner:
+    """Default partitioner.
+    Return the first available partition, the purpose of using this configuration
+    so that the stream maintain the correct order in the listener
+    """
+    @classmethod
+    def __call__(cls, key, all_partitions, available):
+        """
+        Get the partition corresponding to key
+        :param key: partitioning key
+        :param all_partitions: list of all partitions sorted by partition ID
+        :param available: list of available partitions in no particular order
+        :return: one of the values from all_partitions or available
+        """
+        return available[0] if available else all_partitions[0]
+
+
+def init_kafka_logger(name: str, settings_ini: str):
     confg = configparser.ConfigParser(
         allow_no_value=True, interpolation=configparser.ExtendedInterpolation()
     )
@@ -35,7 +35,7 @@ def main(settings_ini: str):
     password = section['password']
     sasl_mechanism, security_protocol = section['sasl_mechanism'], section['security_protocol']
 
-    logger = logging.getLogger("test.logger")
+    logger = logging.getLogger(name)
     logger.propagate = False
     log_level = logging.DEBUG
 
@@ -70,20 +70,9 @@ def main(settings_ini: str):
         # you can include arbitrary fields to all produced logs
         additional_fields={"service": "test_service"},
     )
+
     kafka_handler.setFormatter(log_format)
     logger.addHandler(kafka_handler)
-
     logger.setLevel(log_level)
 
-    # test logging
-    logger.debug("Test debug level logs")
-    for idx in range(3):
-        logger.info("Test log #%d", idx)
-        time.sleep(0.5)
-
-    # log unhandled top-level exception logging
-    raise Exception("No try/except block here")
-
-
-if __name__ == "__main__":
-    main("kafka-settings.ini")
+    return logger
