@@ -89,6 +89,15 @@ sasl_mechanism=
 security_protocol=PLAINTEXT
 
 ```
+
+To access log from command line:
+----------
+
+```bash
+kafka_logger_cli --settings_ini kafka-settings.ini 
+```
+**Note**: The settings file should be the same that you have used to start the kafka-logging server
+
 Troubleshooting
 ----------
 
